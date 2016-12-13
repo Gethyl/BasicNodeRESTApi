@@ -1,2 +1,2 @@
 # BasicNodeExpressMongoose
-Just a basic repository having nodejs with express and mongoose
+Making a simple REST API 

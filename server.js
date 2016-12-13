@@ -1,57 +1,60 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
+const autoIncrement = require('mongoose-auto-increment')
+
 const app = express();
 
-app.use(bodyParser.urlencoded({extended:true}))
+const todoModel = require('./models/todoModel')  //todo model
 
+app.use(bodyParser.urlencoded({extended:true}))
+app.use(bodyParser.json())
+
+// MONGOOSE CONNECT
+// ===========================================================================
 mongoose.connect('mongodb://Gethyl:mongo123@ds061206.mlab.com:61206/tododb')
 
-var db = mongoose.connection;
-db.on('error', ()=> {console.log( 'Gethyl FAILED to connect to mongoose')})
+var db = mongoose.connection
+db.on('error', ()=> {console.log( '---Gethyl FAILED to connect to mongoose')})
 db.once('open', () => {
-	console.log( 'Gethyl connected to mongoose')
+	console.log( '+++Gethyl connected to mongoose')
 })
 
-var Schema = mongoose.Schema;
+autoIncrement.initialize(db)
 
-	// create a schema
-	var toDoSchema = new Schema({
-	  itemId: Number,
-	  item: String,
-	  completed: Boolean
-	}, {collection:"TodoList"});
+todoModel.schema.plugin(autoIncrement.plugin, { model: 'ToDo', field: 'itemId' })
 
-	// the schema is useless so far
-	// we need to create a model using it
-	var ToDo = mongoose.model('ToDo', toDoSchema);
+// ROUTES FOR OUR API
+// ===========================================================================
+var router = express.Router()
 
-	
-	// Select an item from TodoList collection
-	// ToDo.find({item:"Gethyl"},(err,res)=>{
-	// 	if (err){console.log("---Gethyl not found in ToDo" + err)}
-	// 	else console.log("+++Gethyl fetched ==> " + res)
-	// })	
+// middleware to use for all requests
+router.use(function(req, res, next) {
+    // do logging
+    console.log('+++Gethyl entering the middleware');
+    next(); // make sure we go to the next routes and don't stop here
+});
 
+router.route('/')
+		.get((req,res)=>{
+			todoModel.find((err,result)=>{
+				if (err){res.json({message:"---Gethyl GET worked!!",err:err})}
+				else res.json({message:"+++Gethyl GET worked!!",result:result})
+			})
+		  });
+router.route('/additem')
+		.post((req,res)=>{
+			var todoItem = new todoModel({
+				item:req.body.item,
+				completed: req.body.completed
+			})
 
-app.listen(3000,()=> {console.log("Gethyl Express Running!!!")})
+			todoItem.save((err,result)=> {
+				if (err) {res.send("---Gethyl todoItem save failed " + err)}
+				else res.json({message:"+++Gethyl SAVED new todo Item!!",result:result})
+			})
+	    });
 
-app.get('/',(req,res)=>{
-	res.sendFile(__dirname + '/index.html')
-})
+app.use('/api',router)
 
-app.post('/quotes',(req,res)=>{
-	// Insert into TodoList Collection
-	var todoItem = new ToDo({
-		itemId:1,
-		item:req.body.item,
-		completed: false
-	})
-
-	todoItem.save((err,result)=> {
-		if (err) {console.log("---Gethyl todoItem save failed " + err)}
-		console.log("+++Gethyl todoItem saved successfully "+todoItem.item)
-
-		res.redirect('/')
-	})
-})
+app.listen(3000,()=> {console.log("+++Gethyl Express Running!!!")})
